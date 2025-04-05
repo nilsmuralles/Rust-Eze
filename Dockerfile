@@ -1,12 +1,19 @@
 FROM rust:latest
 
-WORKDIR /app
+# Set the working directory inside the rust-eze project
+WORKDIR /app/rust-eze
 
-COPY Cargo.toml Cargo.lock ./
+# Copy Cargo files and build dependencies separately for better caching
+COPY rust-eze/Cargo.toml rust-eze/Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release && rm -r src
 
-COPY . ./
+# Copy the entire project
+COPY rust-eze ./
+
+# Build the Rust application
 RUN cargo build --release
 
-CMD ["./target/release/my_rust_app"]
+# Set the correct path for the compiled binary
+CMD ["./target/release/rust-eze"]
+
