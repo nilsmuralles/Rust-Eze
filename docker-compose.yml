@@ -26,7 +26,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./rust-eze:/app/rust-eze  
+      - ./rust-eze:/app
     command: ["cargo", "run"]
 
 volumes:
