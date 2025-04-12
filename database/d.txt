@@ -1,0 +1,1 @@
+Aqui en esta carpeta pongan su ddl.sql y su data.sql. Esto era solo para que la carpeta se subiera a GitHub.

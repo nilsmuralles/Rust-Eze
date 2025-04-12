@@ -1,0 +1,30 @@
+services:
+  rusteze:
+    container_name: rusteze
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: postgres://postgres:postgres@db:5432/postgres
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+  db:
+    container_name: db
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: reservations
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - .database/ddl.sql:/docker-entrypoint-initdb.d/1_ddl.sql
+      - .database/data.sql:/docker-entrypoint-initdb.d/2_data.sql
+
+volumes:
+  pgdata: {}
