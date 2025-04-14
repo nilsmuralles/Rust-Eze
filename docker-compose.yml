@@ -20,7 +20,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        DATABASE_URL: postgres://postgres:postgres@db:5432/postgres
+        DATABASE_URL: postgres://admin:admin@db:5432/reservations
+
     ports:
       - "8080:8080"
     depends_on:
