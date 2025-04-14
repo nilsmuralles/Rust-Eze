@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use rand::Rng; 
 use std::time::Instant;
 
-fn transaction(n: usize, iso_level: &str) -> Vec<u128>   {
+fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
     let mut handles = vec![];
     let start = Instant::now();
 
@@ -26,9 +26,9 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128>   {
 
             // Tu lógica de reserva aquí
             let mut rng = rand::thread_rng();
-            let user = (i%10 +1) as i32;
+            let user = (i % 10 + 1) as i32;
             let event = rng.gen_range(1..=3);
-            let asiento = ((event-1)*10 + rng.gen_range(1..=10)) as i32;
+            let asiento = ((event - 1) * 10 + rng.gen_range(1..=10)) as i32;
 
             let insert_result = client.execute(
                 "INSERT INTO reservas (usuario_id, evento_id, asiento_id, updated_at, created_at)
@@ -44,8 +44,10 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128>   {
             }
 
             match client.execute("COMMIT", &[]) {
-                Ok(_) => println!("Hilo {} reservó exitosamente", i),
-                *success_clone.lock().unwrap() += 1;
+                Ok(_) => {
+                    println!("Hilo {} reservó exitosamente", i);
+                    *success_clone.lock().unwrap() += 1;
+                }
                 Err(e) => {
                     println!("Hilo {} falló al reservar: {}", i, e);
                     client.execute("ROLLBACK", &[]).ok();
@@ -60,14 +62,15 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128>   {
     for handle in handles {
         handle.join().unwrap();
     }
+
     let duration = start.elapsed();
     let avg_duration = duration.as_millis() / n as u128;
 
-    vec![*success.lock().unwrap(),*fail.lock().unwrap(), avg_duration]
+    vec![*success.lock().unwrap(), *fail.lock().unwrap(), avg_duration]
 }
 
 fn main() {
-    //transacciones READ COMMITTED
+    // Transacciones READ COMMITTED
     let result1 = transaction(5, "READ COMMITTED");
     println!("Usuarios: 5 | Nivel Aislamiento: READ COMMITTED | Exitos: {} | Fracasos: {} | Tiempo promedio: {} ms", result1[0], result1[1], result1[2]);
     
@@ -105,6 +108,4 @@ fn main() {
     
     let result12 = transaction(30, "SERIALIZABLE");
     println!("Usuarios: 30 | Nivel Aislamiento: SERIALIZABLE | Exitos: {} | Fracasos: {} | Tiempo promedio: {} ms", result12[0], result12[1], result12[2]);
-    
 }
-

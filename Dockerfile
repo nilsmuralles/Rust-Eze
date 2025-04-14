@@ -6,7 +6,8 @@ WORKDIR /app
 # Accept the build argument
 ARG DATABASE_URL
 
-ENV DATABASE_URL=$DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
+
 
 COPY . .
 
@@ -19,4 +20,4 @@ WORKDIR /usr/local/bin
 
 COPY --from=builder /app/target/release/rust-eze .
 
-CMD ["./rust-eze"]
+CMD ["rust-eze"]
