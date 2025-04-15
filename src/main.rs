@@ -5,11 +5,6 @@ use rand::Rng;
 use std::time::Instant;
 
 fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
-    use std::sync::{Arc, Mutex};
-    use std::thread;
-    use std::time::Instant;
-    use postgres::{Client, NoTls};
-    use rand::Rng;
 
     let mut handles = vec![];
     let start = Instant::now();
@@ -81,11 +76,18 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
             match insert_result {
                 Ok(_) => {
                     println!("Hilo {} reservó exitosamente", i);
-                    client.execute("COMMIT", &[]).unwrap_or_else(|_| {
-                        client.execute("ROLLBACK", &[]).ok();
-                    });
-                    *success_clone.lock().unwrap() += 1;
-                    counted = true;
+                    match client.execute("COMMIT", &[]) {
+                        Ok(_) => {
+                            *success_clone.lock().unwrap() += 1;
+                            counted = true;
+                        }
+                        Err(e) => {
+                            println!("Error haciendo COMMIT: {}", e);
+                            client.execute("ROLLBACK", &[]).ok();
+                            *fail_clone.lock().unwrap() += 1;
+                            counted = true;
+                        }
+                    }
                 }
                 Err(_) => {
                     println!("Hilo {} falló al insertar reserva", i);
@@ -96,6 +98,7 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
                     }
                 }
             }
+            
         });
 
         handles.push(handle);
