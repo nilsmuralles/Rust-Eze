@@ -11,20 +11,24 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
     let success = Arc::new(Mutex::new(0u128));
     let fail = Arc::new(Mutex::new(0u128));
 
+    let mut client = Client::connect("host=localhost port=5433 user=admin password=admin dbname=reservations", NoTls)
+        .expect("Error conectando a la base de datos");
+
+    client.execute("TRUNCATE TABLE reservas RESTART IDENTITY;", &[]).unwrap();
+
     for i in 0..n {
         let iso_level = iso_level.to_string();
         let success_clone = Arc::clone(&success);
         let fail_clone = Arc::clone(&fail);
 
         let handle = thread::spawn(move || {
-            let mut client = Client::connect("host=db user=admin password=admin dbname=reservations", NoTls)
+            let mut client = Client::connect("host=localhost port=5433 user=admin password=admin dbname=reservations", NoTls)
                 .expect("Error conectando a la base de datos");
 
             client.execute("BEGIN", &[]).unwrap();
             let query = format!("SET TRANSACTION ISOLATION LEVEL {}", iso_level);
             client.execute(&query, &[]).unwrap();
 
-            // Tu lógica de reserva aquí
             let mut rng = rand::thread_rng();
             let user = (i % 10 + 1) as i32;
             let event = rng.gen_range(1..=3);
@@ -36,20 +40,14 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
                 &[&user, &event, &asiento],
             );
 
-            if insert_result.is_err() {
-                println!("Hilo {} falló al insertar reserva", i);
-                client.execute("ROLLBACK", &[]).ok();
-                *fail_clone.lock().unwrap() += 1;
-                return;
-            }
-
-            match client.execute("COMMIT", &[]) {
+            match insert_result {
                 Ok(_) => {
                     println!("Hilo {} reservó exitosamente", i);
                     *success_clone.lock().unwrap() += 1;
+                    client.execute("COMMIT", &[]).unwrap();
                 }
                 Err(e) => {
-                    println!("Hilo {} falló al reservar: {}", i, e);
+                    println!("Hilo {} falló al insertar reserva: {}", i, e);
                     client.execute("ROLLBACK", &[]).ok();
                     *fail_clone.lock().unwrap() += 1;
                 }
@@ -62,6 +60,8 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
     for handle in handles {
         handle.join().unwrap();
     }
+
+    client.execute("TRUNCATE TABLE reservas RESTART IDENTITY;", &[]).unwrap();
 
     let duration = start.elapsed();
     let avg_duration = duration.as_millis() / n as u128;
