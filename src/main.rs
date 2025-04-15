@@ -5,6 +5,12 @@ use rand::Rng;
 use std::time::Instant;
 
 fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
+    use std::sync::{Arc, Mutex};
+    use std::thread;
+    use std::time::Instant;
+    use postgres::{Client, NoTls};
+    use rand::Rng;
+
     let mut handles = vec![];
     let start = Instant::now();
 
@@ -25,34 +31,46 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
             let mut client = Client::connect("host=localhost port=5433 user=admin password=admin dbname=reservations", NoTls)
                 .expect("Error conectando a la base de datos");
 
-            client.execute("BEGIN", &[]).unwrap();
+            let mut counted = false;
+
+            if client.execute("BEGIN", &[]).is_err() {
+                *fail_clone.lock().unwrap() += 1;
+                return;
+            }
+
             let query = format!("SET TRANSACTION ISOLATION LEVEL {}", iso_level);
-            client.execute(&query, &[]).unwrap();
+            if client.execute(&query, &[]).is_err() {
+                client.execute("ROLLBACK", &[]).ok();
+                *fail_clone.lock().unwrap() += 1;
+                return;
+            }
 
             let mut rng = rand::thread_rng();
             let user = (i % 10 + 1) as i32;
             let event = 1;
             let asiento = rng.gen_range(1..=30) as i32;
 
-            //esto es el verificador de asientos disponibles
             let check_query = "SELECT COUNT(*) > 0 FROM reservas WHERE evento_id = $1 AND asiento_id = $2";
-            let asiento_ocupado: bool = match client.query_one(check_query, &[&event, &asiento]){
-
+            let asiento_ocupado: bool = match client.query_one(check_query, &[&event, &asiento]) {
                 Ok(row) => row.get(0),
                 Err(e) => {
                     println!("Error verificando asiento: {}", e);
                     client.execute("ROLLBACK", &[]).ok();
                     *fail_clone.lock().unwrap() += 1;
+                    counted = true;
                     return;
                 }
             };
+
             if asiento_ocupado {
                 println!("Hilo {}: Asiento {} ya ocupado", i, asiento);
                 client.execute("ROLLBACK", &[]).ok();
-                *fail_clone.lock().unwrap() += 1;
+                if !counted {
+                    *fail_clone.lock().unwrap() += 1;
+                    counted = true;
+                }
                 return;
             }
-            //verifcador ends here
 
             let insert_result = client.execute(
                 "INSERT INTO reservas (usuario_id, evento_id, asiento_id, updated_at, created_at)
@@ -63,19 +81,19 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
             match insert_result {
                 Ok(_) => {
                     println!("Hilo {} reservó exitosamente", i);
+                    client.execute("COMMIT", &[]).unwrap_or_else(|_| {
+                        client.execute("ROLLBACK", &[]).ok();
+                    });
                     *success_clone.lock().unwrap() += 1;
-                    match client.execute("COMMIT", &[]) {
-                        Ok(_) => { *success_clone.lock().unwrap() += 1; }
-                        Err(_) => {
-                            client.execute("ROLLBACK", &[]).ok();
-                            *fail_clone.lock().unwrap() += 1;
-                        }
-                    }
+                    counted = true;
                 }
                 Err(_) => {
                     println!("Hilo {} falló al insertar reserva", i);
                     client.execute("ROLLBACK", &[]).ok();
-                    *fail_clone.lock().unwrap() += 1;
+                    if !counted {
+                        *fail_clone.lock().unwrap() += 1;
+                        counted = true;
+                    }
                 }
             }
         });
@@ -90,10 +108,11 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
     client.execute("TRUNCATE TABLE reservas RESTART IDENTITY;", &[]).unwrap();
 
     let duration = start.elapsed();
-    let avg_duration = duration.as_millis() / n as u128;
+    let avg_duration = if n > 0 { duration.as_millis() / n as u128 } else { 0 };
 
     vec![*success.lock().unwrap(), *fail.lock().unwrap(), avg_duration]
 }
+
 
 fn main() {
     // Transacciones READ COMMITTED
