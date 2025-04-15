@@ -31,8 +31,8 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
 
             let mut rng = rand::thread_rng();
             let user = (i % 10 + 1) as i32;
-            let event = rng.gen_range(1..=3);
-            let asiento = ((event - 1) * 10 + rng.gen_range(1..=10)) as i32;
+            let event = 1;
+            let asiento = rng.gen_range(1..=30) as i32;
 
             let insert_result = client.execute(
                 "INSERT INTO reservas (usuario_id, evento_id, asiento_id, updated_at, created_at)
@@ -46,8 +46,8 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
                     *success_clone.lock().unwrap() += 1;
                     client.execute("COMMIT", &[]).unwrap();
                 }
-                Err(e) => {
-                    println!("Hilo {} falló al insertar reserva: {}", i, e);
+                Err(_) => {
+                    println!("Hilo {} falló al insertar reserva", i);
                     client.execute("ROLLBACK", &[]).ok();
                     *fail_clone.lock().unwrap() += 1;
                 }
