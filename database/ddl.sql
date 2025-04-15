@@ -28,6 +28,5 @@ CREATE TABLE reservas (
     asiento_id INT NOT NULL REFERENCES asientos(id),
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
-    CONSTRAINT unique_asiento_evento UNIQUE (asiento_id, evento_id)  
 );
 

@@ -34,6 +34,26 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
             let event = 1;
             let asiento = rng.gen_range(1..=30) as i32;
 
+            //esto es el verificador de asientos disponibles
+            let check_query = "SELECT COUNT(*) > 0 FROM reservas WHERE evento_id = $1 AND asiento_id = $2";
+            let asiento_ocupado: bool = match client.query_one(check_query, &[&event, &asiento]){
+
+                Ok(row) => row.get(0),
+                Err(e) => {
+                    println!("Error verificando asiento: {}", e);
+                    client.execute("ROLLBACK", &[]).ok();
+                    *fail_clone.lock().unwrap() += 1;
+                    return;
+                }
+            }
+            if asiento_ocupado {
+                println!("Hilo {}: Asiento {} ya ocupado", i, asiento);
+                client.execute("ROLLBACK", &[]).ok();
+                *fail_clone.lock().unwrap() += 1;
+                return;
+            }
+            //verifcador ends here
+
             let insert_result = client.execute(
                 "INSERT INTO reservas (usuario_id, evento_id, asiento_id, updated_at, created_at)
                  VALUES ($1, $2, $3, now(), now())",
