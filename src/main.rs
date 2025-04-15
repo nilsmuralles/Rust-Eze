@@ -45,7 +45,7 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
                     *fail_clone.lock().unwrap() += 1;
                     return;
                 }
-            }
+            };
             if asiento_ocupado {
                 println!("Hilo {}: Asiento {} ya ocupado", i, asiento);
                 client.execute("ROLLBACK", &[]).ok();
@@ -64,7 +64,13 @@ fn transaction(n: usize, iso_level: &str) -> Vec<u128> {
                 Ok(_) => {
                     println!("Hilo {} reservó exitosamente", i);
                     *success_clone.lock().unwrap() += 1;
-                    client.execute("COMMIT", &[]).unwrap();
+                    match client.execute("COMMIT", &[]) {
+                        Ok(_) => { *success_clone.lock().unwrap() += 1; }
+                        Err(_) => {
+                            client.execute("ROLLBACK", &[]).ok();
+                            *fail_clone.lock().unwrap() += 1;
+                        }
+                    }
                 }
                 Err(_) => {
                     println!("Hilo {} falló al insertar reserva", i);

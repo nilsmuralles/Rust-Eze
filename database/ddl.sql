@@ -27,6 +27,6 @@ CREATE TABLE reservas (
     evento_id INT NOT NULL REFERENCES eventos(id),
     asiento_id INT NOT NULL REFERENCES asientos(id),
     created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
