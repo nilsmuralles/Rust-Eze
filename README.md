@@ -2,7 +2,7 @@
 
 # Simulación en Rust
 
-Este proyecto contiene una simulación desarrollada en Rust que utiliza Docker para levantar los servicios necesarios. A continuación se detallan los pasos para ejecutar correctamente el entorno y correr la simulación.
+Este proyecto contiene una simulación desarrollada en Rust que utiliza Docker para levantar la base de datos en PostgreSQL. A continuación se detallan los pasos para ejecutar correctamente el entorno y correr la simulación.
 
 ---
 
